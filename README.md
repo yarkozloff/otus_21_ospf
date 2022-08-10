@@ -44,4 +44,149 @@ vagrant box add centos7 /home/sam/centos7.box
 - на router3 — 192.168.30.0/24
 - 
 На данном этапе ping до дополнительных сетей (192.168.10-30.0/24) с соседних роутеров будет недоступен.
-### Установка пакетов для тестирования и настройки OSPF
+### Установка пакетов для тестирования и настройки OSPF между машинами на базе Quagga
+Для тестирования нам понадобятся пакеты vim, traceroute, tcpdump, net-tools, frr. Также на сервер будут скопированы конфиги frr для каждой машины. Пошагово это выглядит так:
+- Отключаем файерволл ufw и удаляем его из автозагрузки
+- Устанавливаем frr
+- Разрешаем (включаем) маршрутизацию транзитных пакетов
+- Включаем демон ospfd в FRR. Для этого в файле /etc/frr/daemons необходимо поменять параметры zebra и ospfd на yes
+- На серверах создаем файл /etc/frr/frr.conf, который будет содержать в себе информацию о требуемых интерфейсах и OSPF.
+Через ansible реализация конфига frr выглядит так (пример для router1):
+```
+!Указание версии FRR
+frr version 8.1
+frr defaults traditional
+!Указываем имя машины
+hostname {{ hostname1 }}
+log syslog informational
+no ipv6 forwarding
+service integrated-vtysh-config
+!
+!Добавляем информацию об интерфейсе enp0s8
+interface {{ name_int1_1 }}
+!Указываем имя интерфейса
+description {{ description1_1 }}
+!Указываем ip-aдрес и маску (эту информацию мы получили в прошлом шаге)
+ip address {{ ip_addr1_1 }}
+!Указываем параметр игнорирования MTU
+ip ospf mtu-ignore
+!Если потребуется, можно указать «стоимость» интерфейса
+!ip ospf cost 1000
+!Указываем параметры hello-интервала для OSPF пакетов
+ip ospf hello-interval 10
+!Указываем параметры dead-интервала для OSPF пакетов
+!Должно быть кратно предыдущему значению
+ip ospf dead-interval 30
+!
+interface {{name_int1_2}}
+description {{description1_2}}
+ip address {{ip_addr1_2}}
+ip ospf mtu-ignore
+!ip ospf cost 45
+ip ospf hello-interval 10
+ip ospf dead-interval 30
+interface {{name_int1_3}}
+description {{description1_3}}
+ip address {{ip_addr1_3}}
+ip ospf mtu-ignore
+!ip ospf cost 45
+ip ospf hello-interval 10
+ip ospf dead-interval 30
+!
+!Начало настройки OSPF
+router ospf
+!Указываем router-id
+router-id {{id_router1}}
+!Указываем сети, которые хотим анонсировать соседним роутерам
+network {{network1_1}}
+network {{network1_2}}
+network {{network1_3}}
+!Указываем адреса соседних роутеров
+neighbor {{neighbor1_1}}
+neighbor {{neighbor1_2}}
+!Указываем адрес log-файла
+log file /var/log/frr/frr.log
+default-information originate always
+```
+И соответсвующие для конфига переменные:
+```
+---
+# vars file for ospf
+
+#Router1
+
+hostname1: "router1"
+name_int1_1: eth1
+description1_1: "r1-r2"
+ip_addr1_1: "10.0.10.1/30"
+name_int1_2: "eth2"
+description1_2: "r1-r3"
+ip_addr1_2: "10.0.12.1/30"
+name_int1_3: "eth3"
+description1_3: "net_router1"
+ip_addr1_3: "192.168.10.1/24"
+id_router1: "1.1.1.1"
+network1_1: "10.0.10.0/30 area 0"
+network1_2: "10.0.12.0/30 area 0"
+network1_3: "192.168.10.0/24 area 0"
+neighbor1_1: "10.0.10.2"
+neighbor1_2: "10.0.12.2"
+#Router2
+```
+Для выполнения роли файлы и переменные лежат в соответсвущих каталогах main/files и main/vars
+
+Тестирование:
+В Vagrantfile указываем путь до плэйбука и выполняем команду vagrant provision. Подключаемся к машине router1. 
+Проверям, что OSPF перезапустился без ошибок:
+```
+[root@router1 ~]# systemctl status frr
+● frr.service - FRRouting (FRR)
+   Loaded: loaded (/usr/lib/systemd/system/frr.service; enabled; vendor preset: disabled)
+   Active: active (running) since Wed 2022-08-10 23:10:37 UTC; 20min ago
+  Process: 30832 ExecStop=/usr/lib/frr/frr stop (code=exited, status=0/SUCCESS)
+  Process: 30915 ExecStart=/usr/lib/frr/frr start (code=exited, status=0/SUCCESS)
+   CGroup: /system.slice/frr.service
+           ├─30932 /usr/lib/frr/zebra -d -A 127.0.0.1
+           ├─30941 /usr/lib/frr/ospfd -d -A 127.0.0.1
+           └─30952 /usr/lib/frr/watchfrr -d -b_ -r/usr/lib/frr/frr_restart_%s -s/usr/lib/frr/frr_...
+
+```
+Пробуем сделать ping до ip-адреса 192.168.30.1:
+```
+[root@router1 ~]# ping 192.168.30.1
+PING 192.168.30.1 (192.168.30.1) 56(84) bytes of data.
+64 bytes from 192.168.30.1: icmp_seq=1 ttl=64 time=0.815 ms
+64 bytes from 192.168.30.1: icmp_seq=2 ttl=64 time=0.629 ms
+^C
+--- 192.168.30.1 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1000ms
+rtt min/avg/max/mdev = 0.629/0.722/0.815/0.093 ms
+```
+Запустим трассировку до адреса 192.168.30.1
+```
+[root@router1 ~]# traceroute 192.168.30.1
+traceroute to 192.168.30.1 (192.168.30.1), 30 hops max, 60 byte packets
+ 1  192.168.30.1 (192.168.30.1)  1.363 ms  1.306 ms  1.266 ms
+```
+Проверить из интерфейса vtysh какие маршруты мы видим на данный момент:
+```
+[root@router1 ~]# vtysh
+
+Hello, this is FRRouting (version 5.0.1).
+Copyright 1996-2005 Kunihiro Ishiguro, et al.
+
+router1# show ip route ospf
+Codes: K - kernel route, C - connected, S - static, R - RIP,
+       O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, D - SHARP,
+       F - PBR,
+       > - selected route, * - FIB route
+
+O   10.0.10.0/30 [110/100] is directly connected, eth1, 00:24:45
+O>* 10.0.11.0/30 [110/200] via 10.0.10.2, eth1, 00:23:19
+  *                        via 10.0.12.2, eth2, 00:23:19
+O   10.0.12.0/30 [110/100] is directly connected, eth2, 00:24:45
+O   192.168.10.0/24 [110/100] is directly connected, eth3, 00:24:45
+O>* 192.168.20.0/24 [110/200] via 10.0.10.2, eth1, 00:23:55
+O>* 192.168.30.0/24 [110/200] via 10.0.12.2, eth2, 00:23:19
+```
