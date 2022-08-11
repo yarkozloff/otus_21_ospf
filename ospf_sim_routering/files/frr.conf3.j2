@@ -1,0 +1,54 @@
+!Указание версии FRR
+frr version 8.1
+frr defaults traditional
+!Указываем имя машины
+hostname {{hostname3}}
+log syslog informational
+no ipv6 forwarding
+service integrated-vtysh-config
+!
+!Добавляем информацию об интерфейсе enp0s8
+interface {{name_int3_1}}
+!Указываем имя интерфейса
+description {{description3_1}}
+!Указываем ip-aдрес и маску (эту информацию мы получили в прошлом шаге)
+ip address {{ip_addr3_1}}
+!Указываем параметр игнорирования MTU
+ip ospf mtu-ignore
+!Если потребуется, можно указать «стоимость» интерфейса
+!ip ospf cost 1000
+!Указываем параметры hello-интервала для OSPF пакетов
+ip ospf hello-interval 10
+!Указываем параметры dead-интервала для OSPF пакетов
+!Должно быть кратно предыдущему значению
+ip ospf dead-interval 30
+!
+interface {{name_int3_2}}
+description {{description3_2}}
+ip address {{ip_addr3_2}}
+ip ospf mtu-ignore
+!ip ospf cost 45
+ip ospf hello-interval 10
+ip ospf dead-interval 30
+interface {{name_int3_3}}
+description {{description3_3}}
+ip address {{ip_addr3_3}}
+ip ospf mtu-ignore
+!ip ospf cost 45
+ip ospf hello-interval 10
+ip ospf dead-interval 30
+!
+!Начало настройки OSPF
+router ospf
+!Указываем router-id
+router-id {{id_router3}}
+!Указываем сети, которые хотим анонсировать соседним роутерам
+network {{network3_1}}
+network {{network3_2}}
+network {{network3_3}}
+!Указываем адреса соседних роутеров
+neighbor {{neighbor3_1}}
+neighbor {{neighbor3_2}}
+!Указываем адрес log-файла
+log file /var/log/frr/frr.log
+default-information originate always

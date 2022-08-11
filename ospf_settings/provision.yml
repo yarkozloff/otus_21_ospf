@@ -1,0 +1,160 @@
+---
+- name: Router1 Install settins for OSPF
+  hosts: router1
+  become: yes
+  gather_facts: false
+  vars_files:
+    - './vars/main.yml'
+  tasks:
+
+  - name: Copy rpm file to routers
+    copy:
+      src: ./files/frr.rpm
+      dest: /home/frr.rpm
+
+  - name: install base tools
+    yum:
+      state: present
+      update_cache: true
+      name:
+        - vim
+        - traceroute
+        - tcpdump
+        - net-tools
+        - /home/frr.rpm
+
+  - name: set up forward packages across routers
+    sysctl:
+      name: net.ipv4.conf.all.forwarding
+      value: '1'
+      state: present
+
+  - name: Copy frr.daemons file to routers
+    copy:
+      src: ./files/daemons
+      dest: /etc/frr/daemons
+      owner: frr
+      group: frr
+      mode: 0640
+
+  - name: Copy frr.conf file to router1
+    template:
+      src: ./files/frr.conf1.j2
+      dest: /etc/frr/frr.conf
+      owner: frr
+      group: frr
+      mode: 0640
+
+  - name: restart FRR
+    service:
+      name: frr
+      state: restarted
+      enabled: true
+
+
+
+- name: Router2 Install settins for OSPF
+  hosts: router2
+  become: yes
+  gather_facts: false
+  vars_files:
+    - './vars/main.yml'
+  tasks:
+
+  - name: Copy rpm file to routers
+    copy:
+      src: ./files/frr.rpm
+      dest: /home/frr.rpm
+
+  - name: install base tools
+    yum:
+      state: present
+      update_cache: true
+      name:
+        - vim
+        - traceroute
+        - tcpdump
+        - net-tools
+        - /home/frr.rpm
+
+  - name: set up forward packages across routers
+    sysctl:
+      name: net.ipv4.conf.all.forwarding
+      value: '1'
+      state: present
+
+  - name: Copy frr.daemons file to routers
+    copy:
+      src: ./files/daemons
+      dest: /etc/frr/daemons
+      owner: frr
+      group: frr
+      mode: 0640
+
+  - name: Copy frr.conf file to router1
+    template:
+      src: ./files/frr.conf2.j2
+      dest: /etc/frr/frr.conf
+      owner: frr
+      group: frr
+      mode: 0640
+
+  - name: restart FRR
+    service:
+      name: frr
+      state: restarted
+      enabled: true
+
+
+      
+- name: Router3 Install settins for OSPF
+  hosts: router3
+  become: yes
+  gather_facts: false
+  vars_files:
+    - './vars/main.yml'
+  tasks:
+
+  - name: Copy rpm file to routers
+    copy:
+      src: ./files/frr.rpm
+      dest: /home/frr.rpm
+
+  - name: install base tools
+    yum:
+      state: present
+      update_cache: true
+      name:
+        - vim
+        - traceroute
+        - tcpdump
+        - net-tools
+        - /home/frr.rpm
+
+  - name: set up forward packages across routers
+    sysctl:
+      name: net.ipv4.conf.all.forwarding
+      value: '1'
+      state: present
+
+  - name: Copy frr.daemons file to routers
+    copy:
+      src: ./files/daemons
+      dest: /etc/frr/daemons
+      owner: frr
+      group: frr
+      mode: 0640
+
+  - name: Copy frr.conf file to router3
+    template:
+      src: ./files/frr.conf3.j2
+      dest: /etc/frr/frr.conf
+      owner: frr
+      group: frr
+      mode: 0640
+
+  - name: restart FRR
+    service:
+      name: frr
+      state: restarted
+      enabled: true

@@ -1,0 +1,12 @@
+Log created: 2022-08-11T07:09:20.190321000Z
+Process ID:  44432 (0xad90)
+Parent PID:  1 (0x1)
+Executable:  /usr/lib/virtualbox/VBoxHeadless
+Arg[0]: /usr/lib/virtualbox/VBoxHeadless
+Arg[1]: --comment
+Arg[2]: ospf_router3_1660171570000_96598
+Arg[3]: --startvm
+Arg[4]: 71be110a-467d-4a5f-80a2-9a68be9bf1a1
+Arg[5]: --vrde
+Arg[6]: config
+AddRef: illegal refcnt=3221225469 state=2
