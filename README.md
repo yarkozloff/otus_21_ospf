@@ -191,3 +191,51 @@ O>* 192.168.20.0/24 [110/200] via 10.0.10.2, eth1, 00:23:55
 O>* 192.168.30.0/24 [110/200] via 10.0.12.2, eth2, 00:23:19
 ```
 ### Настройка ассиметричного роутинга
+Настройки выполняем аналогично пункту выше ролью ansible. Во-первых для настройки ассиметричного роутинга нам необходимо выключить блокировку ассиметричной маршрутизации: sysctl net.ipv4.conf.all.rp_filter=0. Во-вторых на roter1 изменим «стоимость интерфейса» на 1000. 
+Смотрим router1:
+```
+router1# show ip route ospf
+Codes: K - kernel route, C - connected, S - static, R - RIP,
+       O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, D - SHARP,
+       F - PBR,
+       > - selected route, * - FIB route
+
+O   10.0.10.0/30 [110/300] via 10.0.12.2, eth2, 00:05:35
+O>* 10.0.11.0/30 [110/200] via 10.0.12.2, eth2, 00:05:35
+O   10.0.12.0/30 [110/100] is directly connected, eth2, 00:05:46
+O   192.168.10.0/24 [110/100] is directly connected, eth3, 00:06:35
+O>* 192.168.20.0/24 [110/300] via 10.0.12.2, eth2, 00:05:35
+O>* 192.168.30.0/24 [110/200] via 10.0.12.2, eth2, 00:05:35
+```
+router2:
+```
+router2# show ip route ospf
+Codes: K - kernel route, C - connected, S - static, R - RIP,
+       O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, D - SHARP,
+       F - PBR,
+       > - selected route, * - FIB route
+
+O   10.0.10.0/30 [110/100] is directly connected, eth1, 00:07:17
+O   10.0.11.0/30 [110/100] is directly connected, eth2, 00:07:09
+O>* 10.0.12.0/30 [110/200] via 10.0.10.1, eth1, 00:06:58
+  *                        via 10.0.11.1, eth2, 00:06:58
+O>* 192.168.10.0/24 [110/200] via 10.0.10.1, eth1, 00:07:17
+O   192.168.20.0/24 [110/100] is directly connected, eth3, 00:07:33
+O>* 192.168.30.0/24 [110/200] via 10.0.11.1, eth2, 00:06:58
+```
+После внесения данных настроек, мы видим, что маршрут до сети 192.168.20.0/30 теперь пойдёт через router2, но обратный трафик от router2 пойдёт по другому пути.
+
+Тестирование:
+На router1 запускаем пинг от 192.168.10.1 до 192.168.20.1: ping -I 192.168.10.1 192.168.20.1. На router2 запускаем tcpdump, который будет смотреть трафик только на порту eth2
+```
+[root@router2 ~]# tcpdump -i eth2
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on eth2, link-type EN10MB (Ethernet), capture size 262144 bytes
+20:23:47.316107 IP 192.168.10.1 > router2: ICMP echo request, id 7727, seq 73, length 64
+20:23:48.316785 IP 192.168.10.1 > router2: ICMP echo request, id 7727, seq 74, length 64
+20:23:49.317939 IP 192.168.10.1 > router2: ICMP echo request, id 7727, seq 75, length 64
+20:23:50.319447 IP 192.168.10.1 > router2: ICMP echo request, id 7727, seq 76, length 64
+```
+Видим что данный порт только получает ICMP-трафик с адреса 192.168.10.1
