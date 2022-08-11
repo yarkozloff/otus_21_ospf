@@ -190,6 +190,7 @@ O   192.168.10.0/24 [110/100] is directly connected, eth3, 00:24:45
 O>* 192.168.20.0/24 [110/200] via 10.0.10.2, eth1, 00:23:55
 O>* 192.168.30.0/24 [110/200] via 10.0.12.2, eth2, 00:23:19
 ```
+
 ### Настройка ассиметричного роутинга
 Настройки выполняем аналогично пункту выше ролью ansible. Во-первых для настройки ассиметричного роутинга нам необходимо выключить блокировку ассиметричной маршрутизации: sysctl net.ipv4.conf.all.rp_filter=0. Во-вторых на roter1 изменим «стоимость интерфейса» на 1000. 
 Смотрим router1:
@@ -243,15 +244,16 @@ listening on eth2, link-type EN10MB (Ethernet), capture size 262144 bytes
 ```
 Видим что данный порт только получает ICMP-трафик с адреса 192.168.10.1. На router2 запускаем tcpdump, который будет смотреть трафик только на порту eth1:
 ```
-[root@router2 ~]# tcpdump -i eth1
+[root@router2 ~]# tcpdump -i eth2
 tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-listening on eth1, link-type EN10MB (Ethernet), capture size 262144 bytes
-20:25:56.798911 IP 10.0.10.1 > ospf-all.mcast.net: OSPFv2, Hello, length 48
-20:26:01.059995 IP router2 > ospf-all.mcast.net: OSPFv2, Hello, length 48
-20:26:06.799226 IP 10.0.10.1 > ospf-all.mcast.net: OSPFv2, Hello, length 48
-20:26:11.061265 IP router2 > ospf-all.mcast.net: OSPFv2, Hello, length 48
-20:26:16.805108 IP 10.0.10.1 > ospf-all.mcast.net: OSPFv2, Hello, length 48
+listening on eth2, link-type EN10MB (Ethernet), capture size 262144 bytes
+20:48:47.946409 IP 192.168.10.1 > router2: ICMP echo request, id 9581, seq 15, length 64
+20:48:48.946922 IP 192.168.10.1 > router2: ICMP echo request, id 9581, seq 16, length 64
+20:48:49.946408 IP 192.168.10.1 > router2: ICMP echo request, id 9581, seq 17, length 64
+20:48:50.946945 IP 192.168.10.1 > router2: ICMP echo request, id 9581, seq 18, length 64
 ```
+Видим что данный порт только отправляет ICMP-трафик на адрес 192.168.10.1, таким образом мы видим ассиметричный роутинг.
+
 
 ### Настройка симметричного роутинга
 Так как у нас уже есть один «дорогой» интерфейс, нам потребуется добавить ещё один дорогой интерфейс, чтобы у нас перестала работать ассиметричная маршрутизация.Так как в прошлом задании мы заметили что router2 будет отправлять обратно трафик через порт eth1, мы также должны сделать его дорогим и далее проверить, что теперь используется симметричная маршрутизация, поменяв стоимость интерфейса eth1 на router2.
