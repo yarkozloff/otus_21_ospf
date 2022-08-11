@@ -228,6 +228,7 @@ O>* 192.168.30.0/24 [110/200] via 10.0.11.1, eth2, 00:06:58
 После внесения данных настроек, мы видим, что маршрут до сети 192.168.20.0/30 теперь пойдёт через router2, но обратный трафик от router2 пойдёт по другому пути.
 
 Тестирование:
+
 На router1 запускаем пинг от 192.168.10.1 до 192.168.20.1: ping -I 192.168.10.1 192.168.20.1. На router2 запускаем tcpdump, который будет смотреть трафик только на порту eth2
 ```
 [root@router2 ~]# tcpdump -i eth2
@@ -238,4 +239,35 @@ listening on eth2, link-type EN10MB (Ethernet), capture size 262144 bytes
 20:23:49.317939 IP 192.168.10.1 > router2: ICMP echo request, id 7727, seq 75, length 64
 20:23:50.319447 IP 192.168.10.1 > router2: ICMP echo request, id 7727, seq 76, length 64
 ```
-Видим что данный порт только получает ICMP-трафик с адреса 192.168.10.1
+Видим что данный порт только получает ICMP-трафик с адреса 192.168.10.1. На router2 запускаем tcpdump, который будет смотреть трафик только на порту eth1:
+```
+[root@router2 ~]# tcpdump -i eth1
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on eth1, link-type EN10MB (Ethernet), capture size 262144 bytes
+20:25:56.798911 IP 10.0.10.1 > ospf-all.mcast.net: OSPFv2, Hello, length 48
+20:26:01.059995 IP router2 > ospf-all.mcast.net: OSPFv2, Hello, length 48
+20:26:06.799226 IP 10.0.10.1 > ospf-all.mcast.net: OSPFv2, Hello, length 48
+20:26:11.061265 IP router2 > ospf-all.mcast.net: OSPFv2, Hello, length 48
+20:26:16.805108 IP 10.0.10.1 > ospf-all.mcast.net: OSPFv2, Hello, length 48
+```
+
+### Настройка симметричного роутинга
+Так как у нас уже есть один «дорогой» интерфейс, нам потребуется добавить ещё один дорогой интерфейс, чтобы у нас перестала работать ассиметричная маршрутизация.Так как в прошлом задании мы заметили что router2 будет отправлять обратно трафик через порт eth1, мы также должны сделать его дорогим и далее проверить, что теперь используется симметричная маршрутизация, поменяв стоимость интерфейса eth1 на router2.
+
+Тестирование:
+
+На router1 запускаем пинг от 192.168.10.1 до 192.168.20.1: ping -I 192.168.10.1 192.168.20.1, а на router2 запускаем tcpdump, который будет смотреть трафик только на порту eth2:
+```
+[root@router2 ~]# tcpdump -i eth2
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on eth2, link-type EN10MB (Ethernet), capture size 262144 bytes
+20:42:28.209874 IP 192.168.10.1 > router2: ICMP echo request, id 8656, seq 25, length 64
+20:42:28.209908 IP router2 > 192.168.10.1: ICMP echo reply, id 8656, seq 25, length 64
+20:42:29.212259 IP 192.168.10.1 > router2: ICMP echo request, id 8656, seq 26, length 64
+20:42:29.212278 IP router2 > 192.168.10.1: ICMP echo reply, id 8656, seq 26, length 64
+20:42:30.214593 IP 192.168.10.1 > router2: ICMP echo request, id 8656, seq 27, length 64
+20:42:30.214623 IP router2 > 192.168.10.1: ICMP echo reply, id 8656, seq 27, length 64
+20:42:31.215739 IP 192.168.10.1 > router2: ICMP echo request, id 8656, seq 28, length 64
+20:42:31.215762 IP router2 > 192.168.10.1: ICMP echo reply, id 8656, seq 28, length 64
+```
+Теперь мы видим, что трафик между роутерами ходит симметрично.
